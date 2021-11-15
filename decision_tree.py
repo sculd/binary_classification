@@ -8,7 +8,7 @@ def _calculate_entropy(cnt_0, cnt_1):
     return 0 if p1 == 1 or p2 == 1 else -p1 * math.log2(p1) - p2 * math.log2(p2)
 
 
-class Node:
+class DecisionTreeNode:
     def __init__(self, data):
         self.left, self.right = None, None
         self.pivot = None
@@ -57,8 +57,8 @@ class Node:
                 self.pivot = d[0]
 
         if entropy_removed_max > 0:
-            self.left = Node([d for d in self.data if d[0] <= self.pivot])
-            self.right = Node([d for d in self.data if d[0] > self.pivot])
+            self.left = DecisionTreeNode([d for d in self.data if d[0] <= self.pivot])
+            self.right = DecisionTreeNode([d for d in self.data if d[0] > self.pivot])
 
     def predict(self, feature):
         while True:
@@ -72,17 +72,34 @@ class Node:
 
 
 class BinaryTreeModel:
-    def __init__(self, zeroes, ones):
-        data = list(map(lambda v: (v, 0), zeroes)) + list(map(lambda v: (v, 1), ones))
-        data.sort()
-        self.root = Node(data)
+    def __init__(self, zeros, ones):
+        data = self._combine_zeros_ones(zeros, ones)
+        self.root = DecisionTreeNode(data)
+
+    def _combine_zeros_ones(self, zeros, ones):
+        data = []
+        i, j, m, n = 0, 0, len(zeros), len(ones)
+        while i < m or j < n:
+            if i == m:
+                data.append((ones[j], 1))
+                j += 1
+            elif j == n:
+                data.append((zeros[i], 0))
+                i += 1
+            elif zeros[i] >= ones[j]:
+                data.append((ones[j], 1))
+                j += 1
+            else:
+                data.append((zeros[i], 0))
+                i += 1
+
+        return data
 
     def predict(self, feature):
         return self.root.predict(feature)
 
-    def evaluate(self, zeroes, ones):
-        data = list(map(lambda v: (v, 0), zeroes)) + list(map(lambda v: (v, 1), ones))
-        data.sort()
+    def evaluate(self, zeros, ones):
+        data = self._combine_zeros_ones(zeros, ones)
 
         corrects = 0
         true_positives, positives = 0, 0
@@ -118,3 +135,4 @@ class BinaryTreeModel:
             l, p = v[1], self.predict(v[0])
             if p != l:
                 print('feature: {v}, label {l}, predicted: {p}'.format(v=v[0], l=l, p=p))
+
