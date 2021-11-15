@@ -9,7 +9,9 @@ def _calculate_entropy(cnt_0, cnt_1):
 
 
 class DecisionTreeNode:
-    def __init__(self, data):
+    def __init__(self, data, min_samples_split = 2, pruned = True):
+        self.min_samples_split = min_samples_split
+        self.pruned = pruned
         self.left, self.right = None, None
         self.pivot = None
 
@@ -23,6 +25,8 @@ class DecisionTreeNode:
 
         self.entropy = _calculate_entropy(cnt_0, cnt_1)
         self._create_next_generation()
+        if self.pruned:
+            self.prune()
 
     def _indented_value(self, indent):
         i = ' '.join(['' for _ in range(indent)])
@@ -34,7 +38,7 @@ class DecisionTreeNode:
         return self._indented_value(0)
 
     def _create_next_generation(self):
-        if len(self.data) < 3:
+        if len(self.data) < self.min_samples_split:
             return
 
         cnts = Counter(map(lambda p: p[1], self.data))
@@ -57,8 +61,30 @@ class DecisionTreeNode:
                 self.pivot = d[0]
 
         if entropy_removed_max > 0:
-            self.left = DecisionTreeNode([d for d in self.data if d[0] <= self.pivot])
-            self.right = DecisionTreeNode([d for d in self.data if d[0] > self.pivot])
+            self.left = DecisionTreeNode([d for d in self.data if d[0] <= self.pivot], min_samples_split = self.min_samples_split, pruned = self.pruned)
+            self.right = DecisionTreeNode([d for d in self.data if d[0] > self.pivot], min_samples_split = self.min_samples_split, pruned = self.pruned)
+
+    def prune(self):
+        pruned = False
+        while True:
+            if not self.pivot:
+                return pruned
+
+            left, right = False, False
+            if self.left:
+                left = self.left.prune()
+            if self.right:
+                right = self.right.prune()
+            pruned = pruned or left or right
+
+            if not self.left.pivot and not self.right.pivot and self.left.label == self.right.label:
+                self.pivot, self.left, self.right = None, None, None
+                pruned = True
+
+            if not left and not right:
+                break
+
+        return pruned
 
     def predict(self, feature):
         while True:
@@ -72,9 +98,9 @@ class DecisionTreeNode:
 
 
 class BinaryTreeModel:
-    def __init__(self, zeros, ones):
+    def __init__(self, zeros, ones, min_samples_split = 2, pruned = True):
         data = self._combine_zeros_ones(zeros, ones)
-        self.root = DecisionTreeNode(data)
+        self.root = DecisionTreeNode(data, min_samples_split = min_samples_split, pruned = pruned)
 
     def _combine_zeros_ones(self, zeros, ones):
         data = []
